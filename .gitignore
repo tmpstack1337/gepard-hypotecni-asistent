@@ -1,1 +1,35 @@
+# Ignoruj virtuální prostředí (např. venv, env apod.)
+venv/
+env/
+.venv/
+
+# Ignoruj IDE konfigurace
+.vscode/
+.idea/
+
+# Ignoruj výstupy a cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+*.db
+
+# Ignoruj huggingface cache nebo jiná velká data
+.cache/
+*.bin
+*.pickle
+
+# Ignoruj OS soubory
+.DS_Store
+Thumbs.db
+
+# Ignoruj .env soubor s API klíči
 .env
+
+# Ignoruj databázové soubory Chroma (v produkci se nehodí)
+chroma_db/
+
+# Ignoruj výstupní zpětnou vazbu
+feedback.csv

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#8EC63F">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
     <title>Ai Hypoteční Asistent</title>
    <style>
         *, *::before, *::after {
@@ -369,6 +372,12 @@
             });
         }
     </script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/service-worker.js')
+      .then(() => console.log("SW registered"))
+      .catch(err => console.error("SW registration failed:", err));
+  }
+</script>
 </body>
 </html>
