@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hypoteční Asistent</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #88C13C;
+            color: #514F51;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        .image-wrapper img {
+            width: 400px;
+            height: auto;
+            display: block;
+            margin: 0 auto 20px;
+            cursor: pointer;
+        }
+
+        .container {
+            position: relative;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin-top: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            font-size: 16px;
+            color: #514F51;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            resize: vertical;
+            overflow: hidden;
+            box-sizing: border-box;
+            min-height: 80px;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 20px 40px;
+            font-size: 18px;
+            background-color: #514F51;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #3e3d3e;
+        }
+
+        .toggle-instructions {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        .toggle-instructions a {
+            color: #514F51;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .instructions {
+            display: none;
+            margin-top: 20px;
+            font-size: 16px;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .instructions ul {
+            padding-left: 20px;
+            margin-top: 10px;
+        }
+
+        .response {
+            margin-bottom: 30px;
+            text-align: left;
+            background-color: #f6f6f6;
+            padding: 20px;
+            border-left: 5px solid #88C13C;
+            border-radius: 5px;
+        }
+
+        .response h2 {
+            margin-top: 0;
+        }
+
+        .container-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+        }
+
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #88C13C;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .feedback-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1px;
+            margin-top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .feedback-buttons span {
+            margin-left: 10px;
+            color: #88C13C;
+        }
+
+        .response p, .response ul, .response ol, .response strong {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .response ul {
+            margin: 10px 0 10px 20px;
+        }
+
+        .response li {
+            margin-bottom: 5px;
+        }
+
+a.citation {
+    display: inline-block;
+    background-color: #eaf5d6;
+    border-left: 4px solid #88C13C;
+    padding: 4px 8px;
+    margin: 4px 0;
+    font-size: 14px;
+    color: #333;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+a.citation:hover {
+    background-color: #d3ecad;
+    color: #000;
+}
+
+    </style>
+
+    <script>
+        function toggleInstructions() {
+            const section = document.getElementById("instructions");
+            section.style.display = section.style.display === "block" ? "none" : "block";
+        }
+
+        function showLoader() {
+            document.getElementById("container-overlay").style.display = "flex";
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+    </script>
+</head>
+<body>
+
+    <div class="image-wrapper">
+        <a href="/">
+            <img src="/static/logo.svg" alt="Pan Gepard">
+        </a>
+    </div>
+
+    <div class="container">
+        <div id="container-overlay" class="container-overlay">
+            <div class="spinner"></div>
+        </div>
+
+        <h1>🤖 AI Hypoteční Asistent</h1>
+
+        {% if result %}
+        <div class="response">
+            <h2>💡 Odpověď:</h2>
+            <p id="odpoved">{{ result | safe }}</p>
+
+            <p id="feedback-message" style="display: none; color: green; font-weight: bold; margin-top: 10px;"></p>
+
+            <div class="feedback-buttons">
+                <span onclick="sendFeedback('up')" title="Užitečná odpověď">👍</span>
+                <span onclick="sendFeedback('down')" title="Neužitečná odpověď">👎</span>
+            </div>
+
+            <div id="feedback-form" style="display: none; flex-direction: column; margin-top: 10px;">
+                <textarea id="feedback-comment" rows="3" placeholder="Můžete doplnit, co bylo špatně nebo dobré..." style="resize: vertical;"></textarea>
+                <button onclick="submitDetailedFeedback()">Odeslat zpětnou vazbu</button>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="post" onsubmit="showLoader()">
+            <textarea name="dotaz" id="dotaz" placeholder="Zadejte dotaz" rows="3" oninput="autoResize(this)">{{ dotaz or '' }}</textarea>
+            <br>
+            <button type="submit">Odeslat</button>
+        </form>
+
+        <div class="toggle-instructions">💡
+            <a onclick="toggleInstructions()">Jak to funguje?</a>
+        </div>
+
+        <div id="instructions" class="instructions">
+            <p><strong>Představení a Instrukce</strong>
+            <br>
+                Tento asistent vám pomůže zorientovat se v pravidlech a podmínkách hypoték. 
+                <p><strong>Zeptejte se například na:</strong></p>
+            </p>
+            <ul>
+                <li>Kdo může žádat o hypotéku na rekonstrukci?</li>
+                <li>Jaké příjmy musí doložit spolužadatel?</li>
+                <li>V jakém případě je vyžadován znalecký posudek?</li>
+                <li>Vypiš mi seznam rizikových zaměstnavatelů</li>
+            </ul>
+            <p>
+                <strong>Formulujte dotaz co nejpřesněji,</strong> například: 
+                <em>"Může rodič požádat o úvěr na dům, který patří dítěti?"</em>
+            </p>
+            <p>
+                Odpověď bude doplněna o citaci z <strong>oficiálních metodických dokumentů</strong>.
+                Aplikace má zakázáno používat zdroje z internetu nebo jiné neoficiální zdroje.
+            </p>
+            <p>
+                Vytvořil Ing. Tomáš Bajtler & kolektiv Ai nástrojů.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let currentFeedbackType = '';
+
+        function sendFeedback(type) {
+            currentFeedbackType = type;
+            document.getElementById("feedback-form").style.display = "flex";
+        }
+
+        function submitDetailedFeedback() {
+            const question = document.querySelector('textarea[name="dotaz"]').value;
+            const answer = document.getElementById("odpoved").innerText;
+            const comment = document.getElementById("feedback-comment").value;
+
+            fetch('/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    question: question,
+                    answer: answer,
+                    feedback: currentFeedbackType,
+                    comment: comment
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    const msgEl = document.getElementById("feedback-message");
+                    msgEl.textContent = "Děkujeme za zpětnou vazbu!";
+                    msgEl.style.display = "block";
+                    document.getElementById("feedback-form").style.display = "none";
+                    document.getElementById("feedback-comment").value = "";
+                } else {
+                    alert('Nepodařilo se odeslat zpětnou vazbu.');
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
