@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hypoteční Asistent</title>
-    <style>
+    <title>Ai Hypoteční Asistent</title>
+   <style>
         *, *::before, *::after {
             box-sizing: border-box;
         }
@@ -19,13 +19,11 @@
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            overflow-x: hidden;
             padding: 20px;
         }
 
         .image-wrapper img {
-            width: 100%;
-            max-width: 400px;
+            width: 300px;
             height: auto;
             display: block;
             margin: 0 auto 20px;
@@ -46,11 +44,13 @@
 
         h1 {
             margin-bottom: 10px;
+            font-size: 24px;
         }
 
         h2 {
             margin-top: 0;
             margin-bottom: 20px;
+            font-size: 20px;
         }
 
         form {
@@ -65,14 +65,12 @@
             border-radius: 5px;
             padding: 15px;
             resize: vertical;
-            overflow: hidden;
-            box-sizing: border-box;
             min-height: 80px;
         }
 
         button {
             margin-top: 20px;
-            padding: 20px 40px;
+            padding: 16px 32px;
             font-size: 18px;
             background-color: #514F51;
             color: white;
@@ -194,6 +192,56 @@
         a.citation:hover {
             background-color: #d3ecad;
             color: #000;
+        }
+
+        /* MOBILNÍ STYLY */
+        @media (max-width: 600px) {
+            .image-wrapper img {
+                width: 200px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+
+            textarea {
+                font-size: 18px;
+                padding: 12px;
+            }
+
+            button {
+                font-size: 20px;
+                padding: 14px 28px;
+            }
+
+            .feedback-buttons {
+                font-size: 28px;
+            }
+
+            .response p, .response ul, .response ol, .response strong {
+                font-size: 18px;
+            }
+
+            .toggle-instructions {
+                font-size: 18px;
+            }
+
+            .instructions {
+                font-size: 17px;
+            }
+
+            a.citation {
+                font-size: 15px;
+                padding: 5px 10px;
+            }
         }
     </style>
 
