@@ -299,11 +299,78 @@
         </div>
         {% endif %}
 
-        <form method="post" onsubmit="showLoader()">
-            <textarea name="dotaz" id="dotaz" placeholder="Zadejte dotaz" rows="3" oninput="autoResize(this)">{{ dotaz or '' }}</textarea>
-            <br>
-            <button type="submit">Odeslat</button>
-        </form>
+<form method="post" onsubmit="showLoader()" style="position: relative;">
+    <!-- Textové pole -->
+    <textarea name="dotaz" id="dotaz" placeholder="Napište prosím svůj dotaz nebo klikněte na ikonu mikrofonu a dotaz prostě nadiktujte." rows="3" oninput="autoResize(this)" style="
+        width: 100%;
+        font-size: 16px;
+        color: #514F51;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 15px;
+        resize: vertical;
+        min-height: 80px;
+        box-sizing: border-box;
+    ">{{ dotaz or '' }}</textarea>
+
+    <!-- Řádek s mikrofonem a tlačítkem uprostřed -->
+    <div style="margin-top: 5px; display: flex; justify-content: center; align-items: center; position: relative;">
+        <!-- Mikrofon vlevo -->
+        <div style="position: absolute; left: 0;">
+            <button type="button" onclick="startDictation()" style="
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 0;
+            ">
+                <img src="/static/mic.svg" alt="🎤" style="width: 28px; height: 28px;">
+            </button>
+        </div>
+
+        <!-- Tlačítko ve středu -->
+        <button type="submit" style="
+            padding: 12px 28px;
+            font-size: 18px;
+            background-color: #514F51;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        ">Odeslat</button>
+    </div>
+</form>
+
+
+
+<script>
+    // Hlasový vstup
+    function startDictation() {
+        if (!('webkitSpeechRecognition' in window)) {
+            alert("Váš prohlížeč nepodporuje hlasové ovládání.");
+            return;
+        }
+
+        const recognition = new webkitSpeechRecognition();
+        recognition.lang = 'cs-CZ';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            const textarea = document.getElementById("dotaz");
+            textarea.value += (textarea.value ? ' ' : '') + transcript;
+            autoResize(textarea);
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Hlasové rozpoznání chyba:", event.error);
+            alert("Došlo k chybě při rozpoznávání hlasu.");
+        };
+
+        recognition.start();
+    }
+</script>
+
 
         <div class="toggle-instructions">💡
             <a onclick="toggleInstructions()">Jak to funguje?</a>
