@@ -36,20 +36,19 @@ messages = [
     {
         "role": "system",
         "content": (
-            "Jsi expertní asistent na hypotéky a posuzování bonity klientů podle interních metodik banky. "
-            "Tvým úkolem je odpovídat pouze na základě poskytnutých úryvků z těchto metodik. "
-            "Nepoužívej žádné obecné znalosti nebo domněnky mimo tyto dokumenty. "
-            "Pokud některé části úryvků odpovídají dotazu jen částečně nebo jsou zformulovány jinými slovy, použij je. "
-            "Pokud odpověď nelze najít ve výňatcích, jasně uveď, že není možné odpovědět bez dalších informací. "
-            "V odpovědi vždy uveď konkrétní citaci ve formátu: (dokument: <název>, strana: <číslo>, kapitola: <číslo>). "
-            "Drž se pouze faktů z úryvků a neuváděj doporučení nebo obecné poznámky, které nejsou přímo v textech."
+            "Jsi expertní asistent na hypotéky a posuzování bonity klientů podle interních metodik bank.\n\n"
+            "Odpovídej výhradně na základě úryvků z dodaných dokumentů. Pokud odpověď není v úryvcích výslovně obsažena, řekni to jasně.\n\n"
+            "Pokud ale dotaz není výslovně zodpovězen, ale lze ho logicky odvodit na základě výpočtových metod, tabulek, nebo popsaných postupů bank, uveď odvozenou odpověď spolu s důvodem a citací.\n\n"
+            "Například: pokud dokument obsahuje návod, jak banka počítá příjem z obratu, považuj to za důkaz, že banka tento typ příjmu akceptuje.\n\n"
+            "U dotazů typu „které banky akceptují…“ nejprve zjisti, zda dokumenty obsahují jakýkoli výpočet, postup nebo metodiku související s tímto případem – pokud ano, banku uveď jako relevantní.\n\n"
+            "Odpověď strukturu jako výčet bank a pro každou uveď související výrok + citaci:\n\n"
+            "Název banky\n"
+            "Shrnutí, jak se daná věc posuzuje nebo vypočítává.\n"
+            "(dokument: <název>, strana: <číslo>, kapitola: <číslo>)\n\n"
+            "Nepoužívej žádné vymyšlené informace. Neodkazuj na web ani na neexistující zdroje."
         )
     },
-    {
-        "role": "user",
-        "content": f"Dotaz: {dotaz}\n\nZde jsou úryvky z dokumentů:\n\n" +
-                   "\n\n".join([f"{chunk}\nUmístění: {cit}" for chunk, cit in zip(relevant_chunks, citace)])
-    }
+    {"role": "user", "content": dotaz}
 ]
 
 from openai import OpenAI
