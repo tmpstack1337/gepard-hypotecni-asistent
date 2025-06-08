@@ -29,11 +29,24 @@ def split_text(text, size, overlap):
     return chunks
 
 # Pomocná funkce: určení banky z názvu nebo obsahu
-def detect_bank(filename, text):
-    patterns = ["ČSOB", "Česká spořitelna", "KB", "Moneta", "Raiffeisen", "UniCredit", "mBank", "Hypoteční banka"]
-    for bank in patterns:
-        if bank.lower() in filename.lower() or bank.lower() in text.lower():
-            return bank
+def get_banka_from_filename(name):
+    name = name.lower()
+    if "csob" in name or "hypotecni_banka" in name or "čsob" in name:
+        return "ČSOB"
+    elif "sporitelna" in name or "cs" in name or "česká" in name:
+        return "Česká spořitelna"
+    elif "kb" in name or "komercni" in name:
+        return "Komerční banka"
+    elif "raiffeisen" in name or "rb" in name:
+        return "Raiffeisen"
+    elif "unicredit" in name or "ucb" in name:
+        return "UniCredit"
+    elif "moneta" in name:
+        return "Moneta"
+    elif "mbank" in name or "mb" in name:
+        return "mBank"
+    elif "oberbank" in name or "ob" in name:
+        return "Oberbank"
     return "Neznámá banka"
 
 # Cesta ke složce se soubory
@@ -74,7 +87,7 @@ for fname in os.listdir(folder_path):
             print(f"⚠️ Prázdný obsah: {fname}")
             continue
 
-        banka = detect_bank(fname, text)
+        banka = get_banka_from_filename(fname)
         chunks = split_text(text, chunk_size, chunk_overlap)
 
         for i, chunk in enumerate(chunks):
@@ -85,7 +98,7 @@ for fname in os.listdir(folder_path):
                     break
 
             metadata = {
-                "dokument": fname,
+                "document_source": fname,
                 "banka": banka,
                 "kapitola": kapitola,
                 "cast": i + 1,
