@@ -17,6 +17,12 @@ import secrets
 import csv
 from dotenv import load_dotenv
 
+# --- Přidáno: zpřístupnění modulu z root složky ---
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from fulltext_validator import analyzuj_relevantni_banky_fulltextem
+
 # === Zvýraznění a prolinkování citací ===
 def highlight_citations(text: str) -> str:
     import re, urllib.parse
@@ -99,6 +105,20 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
     embedding = model.encode(f"query: {dotaz.strip()}").tolist()
     results = collection.query(query_embeddings=[embedding], n_results=80, include=["documents", "metadatas"])
 
+# === Validace pokrytí pomocí fulltextu ===
+    from fulltext_validator import (
+        analyzuj_relevantni_banky_fulltextem,
+        zjisti_banky_z_embeddingu,
+        porovnej_pokryti
+    )
+
+    hledane_slovo = dotaz.strip().lower()
+    fulltext_banky = analyzuj_relevantni_banky_fulltextem(collection, hledane_slovo)
+    embedding_banky = zjisti_banky_z_embeddingu(results["metadatas"][0])
+    chybejici = porovnej_pokryti(fulltext_banky, embedding_banky)
+
+    if chybejici:
+        print("⚠️ Chybějící banky podle fulltext analýzy:", chybejici)
     def detect_bank(text):
         text = text.lower()
         if "kb" in text or "komercni" in text or "komerční" in text:
@@ -176,9 +196,14 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
     "Pokud je v dotazu zmíněna americká hypotéka, ignoruj všechny informace o účelových hypotékách.\n\n"
 
     "📋 Struktura odpovědi:\n"
-    "- Název banky\n"
-    "- Shrnutí pravidla, výpočtu nebo podmínky\n"
-    "- Přesná citace ve formátu (dokument: <název>, strana: <číslo>, kapitola: <číslo>)\n\n"
+    "- Použij přehledný formát ve stylu Markdown:\n"
+    "  • Každou banku začni nadpisem třetí úrovně: ### 🏦 [Název banky]\n"
+    "  • Pro každou sekci (např. podmínky, výpočet, doložení) použij tučný titulek: **Název sekce:**\n"
+    "  • Podmínky, výpočty a výjimky strukturovaně zobraz jako odrážky (- ...)\n"
+    "  • Pokud je více částí, rozděl je tematicky a vizuálně odděl\n"
+    "  • Na konec každého bloku vlož řádek s citací ve formátu:\n"
+    "    📄 Citace: (dokument: <název>, strana: <číslo>, kapitola: <číslo>)\n"
+    "  • Odpověď udržuj kompaktní a srozumitelnou – formát pomáhá čtenářům, ale nezahlcuje\n"
 
     "🧠 Poznámka:\n"
     "Interní úvahy o typu dotazu (např. „Dotaz je výčtový“, „Uživatel se ptá…“) nikdy nezobrazuj uživateli.\n"
