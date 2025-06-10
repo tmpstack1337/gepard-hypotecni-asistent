@@ -16,6 +16,7 @@ import os
 import secrets
 import csv
 from dotenv import load_dotenv
+from fulltext_validator import analyzuj_relevantni_banky_fulltextem
 
 # --- Přidáno: zpřístupnění modulu z root složky ---
 import sys
@@ -105,7 +106,25 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
     embedding = model.encode(f"query: {dotaz.strip()}").tolist()
     results = collection.query(query_embeddings=[embedding], n_results=80, include=["documents", "metadatas"])
 
-# === Validace pokrytí pomocí fulltextu ===
+    # 🔍 DIAGNOSTICKÝ TEST: hledání "výživné"
+    vsechny = collection.get(limit=None)
+    print("📦 Test: Fulltextově hledám 'výživné' v databázi...")
+
+    for doc, meta in zip(vsechny.get("documents", []), vsechny.get("metadatas", [])):
+        if "výživné" in doc.lower():
+            print(f"✅ Nalezeno: banka={meta.get('banka')}, dokument={meta.get('document_source')}")
+
+    from fulltext_validator import (
+        analyzuj_relevantni_banky_fulltextem,
+        zjisti_banky_z_embeddingu,
+        porovnej_pokryti,
+        analyzuj_banky_z_fulltextu  # <- přidáme pro výpis
+    )
+
+    banky_z_fulltextu = analyzuj_banky_z_fulltextu(vsechny.get("metadatas", []))
+    print("📊 Banky ve fulltext výstupu:", banky_z_fulltextu)
+
+    # === Validace pokrytí pomocí fulltextu ===
     from fulltext_validator import (
         analyzuj_relevantni_banky_fulltextem,
         zjisti_banky_z_embeddingu,
@@ -115,10 +134,16 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
     hledane_slovo = dotaz.strip().lower()
     fulltext_banky = analyzuj_relevantni_banky_fulltextem(collection, hledane_slovo)
     embedding_banky = zjisti_banky_z_embeddingu(results["metadatas"][0])
+
+    # 💬 DEBUG výpisy:
+    print("📊 Banky ve fulltext výstupu:", fulltext_banky)
+    print("📊 Banky ve vektorovém výstupu:", embedding_banky)
+
     chybejici = porovnej_pokryti(fulltext_banky, embedding_banky)
 
     if chybejici:
         print("⚠️ Chybějící banky podle fulltext analýzy:", chybejici)
+
     def detect_bank(text):
         text = text.lower()
         if "kb" in text or "komercni" in text or "komerční" in text:
@@ -146,42 +171,54 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
             for meta in results["metadatas"][0]
         )
         if not found:
-            fallback = collection.get(where={"document_source": {"$contains": requested_doc}})
-            if fallback and fallback.get("documents"):
-                results["documents"][0].append(fallback["documents"][0][0])
-                results["metadatas"][0].append(fallback["metadatas"][0][0])
+            fallback = collection.get(limit=None)
+            for doc, meta in zip(fallback["documents"], fallback["metadatas"]):
+                if requested_doc.lower() in (meta.get("document_source") or "").lower():
+                    results["documents"][0].append(doc)
+                    results["metadatas"][0].append(meta)
+                    print(f"✅ Fallback přidal dokument: {requested_doc}")
+                    break
 
+    # 💡 DIAGNOSTIKA: banky obsažené ve výsledcích (embedding)
+    banky_v_odpovedi = {
+        meta.get("banka", "Neznámá banka").lower()
+        for meta in results["metadatas"][0]
+    }
+    print("📋 Banky zahrnuté do odpovědi GPT:", banky_v_odpovedi)
+    
     relevant_chunks = results["documents"][0]
-    citace = [meta.get("location", "") for meta in results["metadatas"][0]]
-
+    citace = [
+        f"(dokument: {meta.get('document_source', '?')}, strana: {meta.get('strana', '?')}, kapitola: {meta.get('kapitola', '?')})"
+        for meta in results["metadatas"][0]
+    ]
+    
     messages = [
-    {
-        "role": "system",
-        "content": (
-            "Jsi expertní asistent na hypotéky a posuzování bonity klientů podle interních metodik bank.\n\n"
+        {
+            "role": "system",
+            "content": (
+                "Jsi expertní asistent na hypotéky a posuzování bonity klientů podle interních metodik bank.\n\n"
     "🔍 Nejprve zjisti, co je vstupem uživatele:\n"
-    "1. Pokud jde o plnohodnotný dotaz, klasifikuj ho do jedné z těchto kategorií:\n"
+    "1. Pokud jde o plnohodnotný dotaz, klasifikuj ho interně do jedné z těchto kategorií:\n"
     "   - výčtový\n"
     "   - srovnávací\n"
     "   - faktický\n"
     "   - podmínkový\n"
     "   - kombinovaný\n"
-    "2. Pokud vstup není úplným dotazem (např. je to pouze téma nebo fragment jako „výživné jako příjem žadatele“), pokus se logicky odvodit, co uživatel pravděpodobně zjišťuje, a pokračuj podle odpovídající logiky.\n"
-    "3. Pokud dotaz neobsahuje název konkrétní banky, agreguj odpovědi napříč všemi dokumenty. Nikdy se nespokojuj pouze s jedním úryvkem nebo jednou bankou.\n"
-    "4. Pokud dotaz obsahuje konkrétní název banky, prioritně pracuj s dokumentem této banky. Ostatní dokumenty zohledni pouze tehdy, pokud daná banka nemá vlastní dokument nebo je v jiném dokumentu výslovně jmenována.\n\n"
-
+    "2. Pokud vstup není úplným dotazem (např. jen fragment jako „výživné jako příjem žadatele“), logicky odvoď, co uživatel pravděpodobně zjišťuje, a pokračuj podle odpovídající logiky.\n"
+    "3. Pokud dotaz neobsahuje název konkrétní banky, agreguj odpovědi napříč všemi dostupnými dokumenty. Nikdy se nespokojuj pouze s jedním úryvkem nebo jednou bankou.\n"
+    "4. Pokud dotaz obsahuje konkrétní banku, pracuj primárně s dokumenty této banky. Ostatní dokumenty zvaž pouze tehdy, pokud je tato banka výslovně zmíněna jinde nebo pokud vlastní dokument chybí.\n\n"
     "🧩 Instrukce podle typu dotazu:\n"
-    "- Výčtový: vypiš každou banku, která podmínku splňuje, každou zvlášť se shrnutím a citací.\n"
-    "- Srovnávací: porovnej hodnoty napříč bankami a uveď pouze tu nejlepší (nebo nejlepší banky, pokud jsou hodnoty shodné).\n"
-    "- Faktický: odpověz jednoznačně a s citací. Pokud informace chybí, řekni to jasně.\n"
-    "- Podmínkový: popiš situace nebo okolnosti, za kterých nastává daný případ. Přidej citace.\n"
-    "- Kombinovaný: vyfiltruj banky, které splňují podmínku, a mezi nimi porovnej výhodnost. Výsledek uveď jen pro ty nejlepší.\n\n"
-
+    "- Výčtový: Vypiš každou banku, která podmínku splňuje. Každou zvlášť se stručným shrnutím a citací.\n"
+    "  ➕ Pokud máš chunk pro danou banku, ale nenacházíš v něm přímou zmínku k dotazu, zvaž možnost odpovědi založené na kombinaci dotazu a názvu banky. Shrň i nepřímé nebo kontextové informace, pokud jsou v chuncích uvedeny.\n"
+    "- Srovnávací: Porovnej hodnoty napříč bankami a uveď pouze tu nejlepší (nebo několik s nejvyšší hodnotou).\n"
+    "- Faktický: Odpověz přesně a s citací. Pokud informace chybí, napiš to jasně.\n"
+    "- Podmínkový: Popiš okolnosti, za kterých situace nastává. Přidej citace.\n"
+    "- Kombinovaný: Vyfiltruj banky splňující podmínku a mezi nimi srovnej výhodnost. Výsledek uveď jen pro ty nejlepší.\n\n"
     "🛑 Pravidla přesnosti:\n"
     "- Vycházej výhradně z úryvků z dokumentů v databázi (ChromaDB).\n"
-    "- Nikdy nevymýšlej informace. Neodkazuj na web, neexistující zdroje ani obecné znalosti.\n"
-    "- Nepřiřazuj dokumenty k bankám, které s nimi nesouvisí.\n"
-    "- V odpovědi uveď název banky tak, jak odpovídá názvu souboru:\n"
+    "- Nevymýšlej informace. Nepoužívej web ani obecné znalosti.\n"
+    "- Nepřiřazuj informace k bankám, které je výslovně neuvádějí.\n"
+    "- V odpovědi používej názvy bank přesně dle dokumentů:\n"
     "  • Hypoteky_KB.pdf → Komerční banka\n"
     "  • Hypoteky_mB.pdf → mBank\n"
     "  • Hypoteky_CS.pdf → Česká spořitelna\n"
@@ -189,37 +226,32 @@ def form_post(request: Request, dotaz: str = Form(...), username: str = Depends(
     "  • Hypoteky_UCB.pdf → UniCredit Bank\n"
     "  • Hypoteky_OB.pdf → Oberbank AG\n"
     "  • Hypoteky_RB_bonita_podnikani.pdf → Raiffeisenbank\n\n"
-
     "♻️ Zaměnitelné výrazy:\n"
     "- „americká hypotéka“ = „neúčelový hypoteční úvěr“ = „neúčelová hypotéka“ = „neúčelová část hypotečního úvěru“\n"
-    "- „účelová hypotéka“ není totéž jako „americká hypotéka“ – nezaměňuj je.\n"
-    "Pokud je v dotazu zmíněna americká hypotéka, ignoruj všechny informace o účelových hypotékách.\n\n"
-
+    "- „účelová hypotéka“ není totéž jako „americká hypotéka“. Nezaměňuj tyto pojmy.\n"
+    "  Pokud je v dotazu zmíněna americká hypotéka, ignoruj informace o účelových hypotékách.\n\n"
     "📋 Struktura odpovědi:\n"
     "- Použij přehledný formát ve stylu Markdown:\n"
     "  • Každou banku začni nadpisem třetí úrovně: ### 🏦 [Název banky]\n"
-    "  • Pro každou sekci (např. podmínky, výpočet, doložení) použij tučný titulek: **Název sekce:**\n"
-    "  • Podmínky, výpočty a výjimky strukturovaně zobraz jako odrážky (- ...)\n"
-    "  • Pokud je více částí, rozděl je tematicky a vizuálně odděl\n"
-    "  • Na konec každého bloku vlož řádek s citací ve formátu:\n"
-    "    📄 Citace: (dokument: <název>, strana: <číslo>, kapitola: <číslo>)\n"
-    "  • Odpověď udržuj kompaktní a srozumitelnou – formát pomáhá čtenářům, ale nezahlcuje\n"
-
+    "  • Každou část označ tučně: **Podmínky:**, **Výpočet:**, **Doložení:** apod.\n"
+    "  • Podmínky a detaily strukturovaně ve formě odrážek: - ...\n"
+    "  • Pokud existuje více oblastí, rozděl je logicky a vizuálně\n"
+    "  • Na konec každého bloku přidej citaci: 📄 Citace: (dokument: <název>, strana: <číslo>, kapitola: <číslo>)\n\n"
     "🧠 Poznámka:\n"
-    "Interní úvahy o typu dotazu (např. „Dotaz je výčtový“, „Uživatel se ptá…“) nikdy nezobrazuj uživateli.\n"
-    "Odpověď začínej rovnou informací, která má pro uživatele hodnotu.\n"
-    "Např. místo:\n"
-    "„Dotaz je výčtový. Uživatel se ptá, které banky akceptují výživné...“\n"
-    "napiš přímo:\n"
-    "„Banky, které akceptují výživné jako příjem žadatele:“\n"
-        )
-    },
-    {
-        "role": "user",
-        "content": f"Dotaz: {dotaz}\n\nZde jsou úryvky z dokumentů:\n\n" +
-                   "\n\n".join([f"{chunk}\nUmístění: {cit}" for chunk, cit in zip(relevant_chunks, citace)])
-    }
-]
+    "- Interní úvahy (např. „Dotaz je výčtový“) nezobrazuj uživateli.\n"
+    "- Odpověď začni rovnou užitečnou informací.\n"
+    "  Například místo:\n"
+    "  „Dotaz je výčtový. Uživatel se ptá, které banky akceptují výživné...“\n"
+    "  napiš přímo:\n"
+    "  „Banky, které akceptují výživné jako příjem žadatele:“\n"
+            )
+        },
+        {
+            "role": "user",
+            "content": f"Dotaz: {dotaz}\n\nZde jsou úryvky z dokumentů:\n\n" +
+                    "\n\n".join([f"{chunk}\nUmístění: {cit}" for chunk, cit in zip(relevant_chunks, citace)])
+        }
+    ]
 
     response = openai.chat.completions.create(
         model="gpt-4o",
