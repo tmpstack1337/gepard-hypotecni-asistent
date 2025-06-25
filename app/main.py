@@ -120,7 +120,8 @@ def highlight_citations(text: str) -> str:
 
     def replace(match):
         citation = match.group(0)
-        doc_match = re.search(r'dokument: ([^)]+)', citation)
+        # Opravený regex – vezme jen název souboru
+        doc_match = re.search(r'dokument: ([^,\)\n]+)', citation)
 
         if not doc_match:
             return citation
